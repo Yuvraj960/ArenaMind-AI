@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import Optional, List
@@ -7,6 +9,7 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "ArenaMind AI"
     APP_VERSION: str = "0.1.0"
+    ENVIRONMENT: str = "development"
     DEBUG: bool = True
     API_V1_PREFIX: str = "/api/v1"
 
@@ -53,7 +56,16 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
 
     # Knowledge Base
-    KNOWLEDGE_BASE_PATH: str = "/app/knowledge_base"
+    @property
+    def KNOWLEDGE_BASE_PATH(self) -> str:
+        """Auto-detect: inside Docker first, else knowledge_base/ at project root."""
+        import os as _os
+        if _os.path.exists("/app/knowledge_base"):
+            return "/app/knowledge_base"
+        # Config is at backend/app/core/config.py → project root is 4 parents up
+        project_root = Path(__file__).resolve().parent.parent.parent.parent
+        return str(project_root / "knowledge_base")
+        return str(project_root / "knowledge_base")
 
     # Stadium
     STADIUM_ID: str = "fifa_wc_2026_stadium_1"
