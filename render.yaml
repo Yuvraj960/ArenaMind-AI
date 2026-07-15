@@ -1,0 +1,78 @@
+# Render Blueprint — ArenaMind AI
+# Deploy with: render blueprint create
+#
+# Order of deployment:
+#   1. Create PostgreSQL (dashboard) — copy connection URL
+#   2. Create Redis (dashboard)       — copy connection URL
+#   3. Deploy backend (this file)     — paste DB + Redis URLs
+#   4. Deploy frontend                — paste backend URL into NEXT_PUBLIC_API_URL
+#
+# ⚠️  Create PostgreSQL and Redis via the Render Dashboard FIRST,
+#     then fill in the connection URLs in this file before deploying.
+
+services:
+  # ────────────────────────────────────────────
+  # 3. FastAPI Backend
+  # ────────────────────────────────────────────
+  - name: arenamind-backend
+    plan: starter
+    region: oregon
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/v1/
+    port: 8000
+    envVars:
+      # ⚠️ Required for live AI — paste your key into Render Dashboard as a Secret
+      # Key: ANTHROPIC_API_KEY  |  From: console.anthropic.com
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      - key: ENVIRONMENT
+        value: production
+
+      # ↓ Paste the Internal Connection URL from your arenamind-db PostgreSQL dashboard
+      - key: DATABASE_URL
+        fromDatabase:
+          name: arenamind-db
+          property: connectionString
+
+      # ↓ Paste the Internal Connection URL from your arenamind-redis Redis dashboard
+      - key: REDIS_URL
+        fromService:
+          name: arenamind-redis
+          type: redis
+          property: connectionString
+
+      - key: KNOWLEDGE_BASE_PATH
+        value: /app/knowledge_base
+
+      - key: QDRANT_URL
+        value: ""
+
+      - key: SECRET_KEY
+        generateValue: true
+
+      # ⚠️ Update this to your actual frontend URL after deploying frontend
+      - key: CORS_ORIGINS
+        value: '["https://arenamind-frontend.onrender.com","http://localhost:3000"]'
+
+  # ────────────────────────────────────────────
+  # 4. Next.js Frontend
+  # ────────────────────────────────────────────
+  - name: arenamind-frontend
+    plan: starter
+    region: oregon
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    port: 3000
+    healthCheckPath: /
+    envVars:
+      # ⚠️ Must be the real backend URL — Render bakes this into the JS bundle at build time
+      - key: NEXT_PUBLIC_API_URL
+        value: https://arenamind-backend.onrender.com/api/v1
+
+      - key: NODE_ENV
+        value: production
+
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
